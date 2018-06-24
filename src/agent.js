@@ -10,6 +10,12 @@ module.exports = class Agent {
         for (let i = 0; i<counts.length; i++)
             this.total += counts[i]*values[i];
     }
+    p2_values(me){
+        return 0;
+    }
+    optimal_offer(me){
+        return 0;
+    }
     offer(o){
         this.log(`${this.rounds} rounds left`);
         this.rounds--;
