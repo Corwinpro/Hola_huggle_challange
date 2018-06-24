@@ -1,3 +1,9 @@
+#TODO
+#   p2_set:
+#       No need in the set. Only need the \hat{p2_set}
+#   generate_optimal_offer:
+#       Need analytical expression and linear solver
+
 class Agent():
     def __init__(self, counts, values, max_rounds, log):
         self.counts = counts
@@ -59,6 +65,7 @@ class Agent():
         #We generate the optimal offer o, which maximizes the J_of
         #J_of = P(offer will be accepted)*self.J_ac
         #The optimal o is given analytically
+        return
 
     def offer(self, o):
         self.log("{0} rounds left".format(self.rounds))
