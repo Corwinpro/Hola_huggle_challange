@@ -1,9 +1,3 @@
-#TODO
-#   generate_optimal_offer:
-#       Need analytical expression and linear solver
-#   p2_values_set:
-#       Generate all possible p2 values via dioph eq
-
 class Agent():
     def __init__(self, counts, values, max_rounds, log):
         self.counts = counts
@@ -14,6 +8,7 @@ class Agent():
         for i in range(len(self.counts)): 
             self.total += counts[i]*values[i]
         self.p2_set, self.p2_set_weights = self.p2_values_set()
+        self.default_p2_set = self.average_of_set(self.p2_set)
         self.p2_offers = []
         self.my_offers = []
         self.threshold = 5
@@ -23,12 +18,22 @@ class Agent():
         self.acceptance_threshold = 8.
         self.diff_weight = 0.2
 
-        self.offer_combinations = self.all_offer_combinations()
+        self.offer_combinations = self.all_combinations(self.counts)
+
+        #agent = Agent([1,2,3], [0,2,2], 1, None)
+        #print agent.offer([1,2,0])
+
+    def sum(self, a):
+        summ = 0
+        for i in range(len(a)):
+            summ += a[i]
+        return summ
 
     def offer_profit(self, o, value):
         profit = 0
         for i in range(len(o)):
             profit += o[i]*value[i]
+        return profit
 
     def average_of_set(self, my_set):
         #For a set my_set, we calculated the weighted average of values
@@ -38,18 +43,23 @@ class Agent():
             _avg_value_i = 0.
             for j in range(len(my_set)):
                 _avg_value_i += my_set[j][i]*self.p2_set_weights[j]
-            average_set.append(_avg_value_i/sum(self.p2_set_weights))
+            average_set.append(_avg_value_i/self.sum(self.p2_set_weights))
         return average_set
 
     def p2_values_set(self):
         #Given a list of counts, we find all possible admissible values,
         #i.e. all lists V: (V,counts) == 10
-        p2_set = [[0. for i in range(len(self.values))] for j in range(5)]
-        self.default_p2_set = self.average_of_set(p2_set)
+        max_prices = [int(10./self.counts[i]) for i in range(len(self.counts))]
+        p2_set = []
+        all_possible_prices = self.all_combinations(max_prices)
+        for price in all_possible_prices:
+            #print self.offer_profit(self.counts, price)
+            if self.offer_profit(self.counts, price) == 10:
+                p2_set.append(price)
         #And assign initial weights for each set
         #weight[i] == x: the values have x probability to appear in p2
-        p2_set_weights = [1. for i in range(len(self.values))]
-        return (p2_set, p2_set_weights)
+        p2_set_weights = [1. for i in range(len(p2_set))]
+        return p2_set, p2_set_weights
 
     def update_p2_set(self, o):
         #Given an offer o, we update the p2_set list
@@ -76,9 +86,9 @@ class Agent():
         p2_profit = self.estimate_p2_profit(o)
         return self.J_ac(profit, p2_profit) > self.acceptance_threshold
     
-    def all_offer_combinations(self):
+    def all_combinations(self, A):
         B = [[]]
-        for t in [range(e+1) for e in self.counts]:
+        for t in [range(e+1) for e in A]:
                 B = [x+[y] for x in B for y in t]
         return B
 
@@ -110,7 +120,7 @@ class Agent():
         return self.offer_combinations[optimal_offer_index]
 
     def offer(self, o):
-        self.log("{0} rounds left".format(self.rounds))
+        #self.log("{0} rounds left".format(self.rounds))
         self.rounds= self.rounds - 1
         if (o):
             self.p2_offers.append(o)
