@@ -14,7 +14,7 @@ class Agent():
         self.threshold = 5
         self.reweighting_param = 0.1
         #Optimal ofer J parameters
-        self.diff_weight = 0.2
+        self.diff_weight = 0.4
         self.acceptance_threshold = 8.-self.diff_weight-0.05
 
         self.offer_combinations = self.all_combinations(self.counts)
@@ -72,12 +72,12 @@ class Agent():
     def update_p2_set(self, o):
         #Given an offer o, we update the p2_set list
         #by reweighting all entities which would result in low opponents profit,
-        #i.e. offer == what opponent wants to get,
-        #if offer.profit < self.threshold for v in p2_set, decrease probability(v)
-        offer = [self.counts[i] - o[i] for i in range(len(self.counts))]
+        #i.e. res == what opponent wants to get,
+        #if res.profit < self.threshold for v in p2_set, decrease probability(v)
+        res = [self.counts[i] - o[i] for i in range(len(self.counts))]
         for i in range(len(self.p2_set)):
             value = self.p2_set[i]
-            if self.offer_profit(offer, value) < self.threshold:
+            if self.offer_profit(res, value) < self.threshold:
                 self.p2_set_weights[i] *= self.reweighting_param
 
     def estimate_p2_profit(self, o):
@@ -96,10 +96,11 @@ class Agent():
         if profit > 9:
             print 'I was given 9 or more',
             return True
-        p2_profit = self.estimate_p2_profit(o)
+        res = [self.counts[i] - o[i] for i in range(len(self.counts))]
+        p2_profit = self.estimate_p2_profit(res)
         proceed_to_accept = self.J_ac(profit, p2_profit) > self.acceptance_threshold
         if proceed_to_accept:
-            print 'I get ', profit, 'and I expect him to get ', p2_profit
+            print 'I get ', profit, 'and I expect to give ', p2_profit, ' with my estimation of values as ', self.hat_p2
         return proceed_to_accept
 
     def p2_acceptance_prob(self, o):
@@ -142,7 +143,7 @@ class Agent():
 
     def offer(self, o):
         #self.log("{0} rounds left".format(self.rounds))
-        self.rounds= self.rounds - 1
+        self.rounds = self.rounds - 1
         if (o):
             self.p2_offers.append(o)
             #Given an offer, we calculate the acceptance cost function, J_ac,
@@ -160,9 +161,9 @@ class Agent():
         print 'I expect to get ', self.offer_profit(new_offer, self.values), ' and give ', self.offer_profit(new_offer_to_give, self.hat_p2),
         return new_offer_to_give
 
-counts = [2,3,2]
-values1 = [2,0,3]
-values2 = [0,2,2]
+counts = [4,3,2]
+values1 = [2,0,1]
+values2 = [1,2,0]
 agent1 = Agent(counts, values1, 5, None)
 agent2 = Agent(counts, values2, 5, None)
 
