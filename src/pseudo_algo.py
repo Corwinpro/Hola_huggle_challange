@@ -14,7 +14,7 @@ class Agent():
         self.threshold = 5
         self.reweighting_param = 0.1
         #Optimal ofer J parameters
-        self.diff_weight = 0.5
+        self.diff_weight = 0.2
         self.acceptance_threshold = 8.-self.diff_weight-0.05
 
         self.offer_combinations = self.all_combinations(self.counts)
@@ -33,7 +33,13 @@ class Agent():
         for i in range(len(a)):
             summ += a[i]*b[i]
         return summ
-    
+
+    def all_combinations(self, A):
+        B = [[]]
+        for t in [range(e+1) for e in A]:
+                B = [x+[y] for x in B for y in t]
+        return B
+
     def offer_profit(self, o, value):
         return self.inner(o, value)
 
@@ -66,10 +72,12 @@ class Agent():
     def update_p2_set(self, o):
         #Given an offer o, we update the p2_set list
         #by reweighting all entities which would result in low opponents profit,
-        #i.e. if o.profit < self.threshold for v in p2_set, decrease probability(v)
+        #i.e. offer == what opponent wants to get,
+        #if offer.profit < self.threshold for v in p2_set, decrease probability(v)
+        offer = [self.counts[i] - o[i] for i in range(len(self.counts))]
         for i in range(len(self.p2_set)):
             value = self.p2_set[i]
-            if self.offer_profit(o, value) < self.threshold:
+            if self.offer_profit(offer, value) < self.threshold:
                 self.p2_set_weights[i] *= self.reweighting_param
 
     def estimate_p2_profit(self, o):
@@ -86,28 +94,23 @@ class Agent():
         #If J_ac > self.acceptance_threshold, the offer is accepted
         profit = self.offer_profit(o, self.values)
         if profit > 9:
+            print 'I was given 9 or more',
             return True
         p2_profit = self.estimate_p2_profit(o)
         proceed_to_accept = self.J_ac(profit, p2_profit) > self.acceptance_threshold
         if proceed_to_accept:
             print 'I get ', profit, 'and I expect him to get ', p2_profit
         return proceed_to_accept
-    
-    def all_combinations(self, A):
-        B = [[]]
-        for t in [range(e+1) for e in A]:
-                B = [x+[y] for x in B for y in t]
-        return B
 
     def p2_acceptance_prob(self, o):
         p2_profit = self.offer_profit(self.hat_p2, o)
-        #return p2_profit**0.8 / 10.
-        if p2_profit >= 9.:
+        return p2_profit**0.8 / 10.
+        '''if p2_profit >= 9.:
             return 1.
         elif p2_profit <= 4.:
             return 0.1
         else:
-            return 0.18*p2_profit - 0.62
+            return 0.18*p2_profit - 0.62'''
 
     def J_of(self, o):
         #We dont accept offers with profit < 6
@@ -151,13 +154,15 @@ class Agent():
         
         #Then, we generate an new optimal offer
         new_offer = self.generate_optimal_offer()
+        new_offer_to_give = [self.counts[i] - new_offer[i] for i in range(len(self.counts))]
         self.my_offers.append(new_offer)
         #And return the new offer
-        return [self.counts[i] - new_offer[i] for i in range(len(self.counts))]
+        print 'I expect to get ', self.offer_profit(new_offer, self.values), ' and give ', self.offer_profit(new_offer_to_give, self.hat_p2),
+        return new_offer_to_give
 
-counts = [1,6,2]
-values1 = [2,1,1]
-values2 = [0,1,2]
+counts = [2,3,2]
+values1 = [2,0,3]
+values2 = [0,2,2]
 agent1 = Agent(counts, values1, 5, None)
 agent2 = Agent(counts, values2, 5, None)
 
