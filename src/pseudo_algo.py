@@ -1,6 +1,4 @@
 #TODO
-#   p2_set:
-#       No need in the set. Only need the \hat{p2_set}
 #   generate_optimal_offer:
 #       Need analytical expression and linear solver
 
