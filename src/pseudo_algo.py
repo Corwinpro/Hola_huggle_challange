@@ -1,6 +1,8 @@
 #TODO
 #   generate_optimal_offer:
 #       Need analytical expression and linear solver
+#   p2_values_set:
+#       Generate all possible p2 values via dioph eq
 
 class Agent():
     def __init__(self, counts, values, max_rounds, log):
