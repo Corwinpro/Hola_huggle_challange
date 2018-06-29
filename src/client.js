@@ -2,9 +2,32 @@
 const crypto = require('crypto');
 const ws = require('ws');
 
+function get_pow(id, bits){
+    loop: for (let nonce = 0;; nonce++)
+    {
+        let hash = crypto.createHash('sha256')
+            .update(`${nonce}:${id}`).digest();
+        let b = bits, i = 0;
+        while (b)
+        {
+            if (b<8)
+            {
+                if (hash[i] & ((1<<b) - 1))
+                    continue loop;
+                return String(nonce);
+            }
+            if (hash[i++])
+                continue loop;
+            b -= 8;
+        }
+        return String(nonce);
+    }
+}
+
 class Client {
     constructor(url, id, mk_agent, logger){
         let hash = crypto.createHash('md5').update(id).digest('hex');
+        this.id = id;
         this.logger = logger;
         this.logger.log('network',
             `Connecting to ${url} (ID hash ${hash})...`);
@@ -21,8 +44,6 @@ class Client {
     }
     _on_open(){
         this.connected = true;
-        this.logger.log('network',
-            'Connected to remote server, waiting for partner...');
     }
     _on_message(event){
         try {
@@ -48,24 +69,28 @@ class Client {
                 this.agent.offer(json.offer);
                 break;
             case 'log':
+                if (json.arg[0]=='network')
+                {
+                    let m = /^pow:(\d+)$/.exec(json.arg[2]);
+                    if (m)
+                    {
+                        this.logger.log('network',
+                            'Passing anti-spam test...');
+                        return this.ws.send(JSON.stringify({type: 'pow',
+                            nonce: get_pow(this.id, +m[1])}));
+                    }
+                }
                 this.logger.log(...json.arg);
                 break;
             default:
-                this.logger.log('network', 'Protocol error');
-                this.destroy(true);
+                this.destroy(true, 'Protocol error');
             }
         } catch(e){
-            this.logger.log('network', `Protocol error: ${e}`);
-            this.destroy(true);
+            this.destroy(true, `Protocol error: ${e}`);
         }
     }
-    _on_error(event){
-        this.logger.log('network', event.message);
-        this.destroy(false);
-    }
-    _on_close(event){
-        this.destroy(false);
-    }
+    _on_error(event){ this.destroy(false, event.message); }
+    _on_close(event){ this.destroy(false, event.reason); }
     _on_offer(o){
         this.ws.send(JSON.stringify({type: 'offer', offer: o}));
         this.logger.log('offer', this.me, this._expand(o));
@@ -87,7 +112,7 @@ class Client {
         res[1-this.me] = o.map((n, i)=>this.counts[i]-n);
         return res;
     }
-    destroy(close){
+    destroy(close, reason){
         if (this.agent)
             this.agent.destroy();
         this.ws.onopen = undefined;
@@ -101,7 +126,10 @@ class Client {
             else
                 this.ws.destroy();
         }
-        this.logger.log('network', 'Disconnected from remote server');
+        let msg = 'Disconnected from remote server';
+        if (reason)
+            msg += `: ${reason}`;
+        this.logger.log('network', msg);
         this.logger.finalize();
     }
 }

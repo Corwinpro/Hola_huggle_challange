@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 'use strict'; /*jslint node:true*/
 const cluster = require('cluster');
 const random_js = require('random-js');
@@ -8,7 +9,7 @@ const log = require('./log.js');
 const session = require('./session.js');
 const ui = require('./ui.js');
 const getopt = require('node-getopt').create([
-    ['l', 'log=FILE.json', 'log the session into a file'],
+    ['l', 'log=FILE.json', 'log the session into a machine-readable file'],
     ['r', 'replay=FILE.json', 'replay a logged session'],
     ['t', 'timeout=MS',
         'enforce timeout upon scripts (default: do not enforce)'],
@@ -16,8 +17,8 @@ const getopt = require('node-getopt').create([
         'pseudo-random seed for session parameters (default: random)'],
     ['I', 'id=ID', 'agent identifier for the remote server'],
     ['T', 'types=N', 'types of objects (default: 3)'],
-    ['m', 'min-objects=N', 'minimum objects per type (default: 1)'],
-    ['M', 'max-objects=N', 'maximum objects per type (default: 5)'],
+    ['m', 'min-objects=N', 'minimum total number of objects (default: 1)'],
+    ['M', 'max-objects=N', 'maximum total number of objects (default: 6)'],
     ['V', 'total-value=V', 'total value of all objects (default: 10)'],
     ['R', 'max-rounds=N', 'maximum number of negotiation rounds (default: 5)'],
     ['u', 'unsafe', 'use unsafe, in-process script loader without VM'],
@@ -65,7 +66,7 @@ function main(){
             die('--replay must be used without other arguments');
         return log.replay(options.replay, new ui.Logger());
     }
-    let mk_agent = [], remote;
+    let mk_agent = [], remote, shuffle = false;
     for (let a of argv)
     {
         if (/^wss?:\/\//.test(a))
@@ -95,12 +96,14 @@ function main(){
         if (options.quiet)
             die('--quiet cannot be used with a human agent');
         mk_agent[0] = (...arg)=>new ui.Agent(...arg);
+        shuffle = true;
     }
     if (!mk_agent[1] && !remote)
     {
         if (options.quiet)
             die('--quiet cannot be used with a human agent');
         mk_agent[1] = (...arg)=>new ui.Agent(...arg);
+        shuffle = true;
     }
     let loggers = [];
     if (!options.quiet)
@@ -117,9 +120,9 @@ function main(){
         if (options.types)
             die('--types cannot be used with a remote server');
         if (options['min-objects'])
-            die('--min-ojbects cannot be used with a remote server');
+            die('--min-objects cannot be used with a remote server');
         if (options['max-objects'])
-            die('--max-ojbects cannot be used with a remote server');
+            die('--max-objects cannot be used with a remote server');
         if (options['total-value'])
             die('--total-value cannot be used with a remote server');
         if (options['max-rounds'])
@@ -135,15 +138,15 @@ function main(){
             seed = Math.random()*0x7fffffff|0;
         let types = (options.types|0)||3;
         let min_obj = (options['min-objects']|0)||1;
-        let max_obj = (options['max-objects']|0)||5;
+        let max_obj = (options['max-objects']|0)||6;
         let total = (options['total-value']|0)||10;
         let max_rounds = (options['max-rounds']|0)||5;
         if (types<2 || types>10)
             die('--types must be between 2 and 10');
         if (min_obj<1 || min_obj>10)
             die('--min-objects must be between 1 and 10');
-        if (max_obj<1 || max_obj>10)
-            die('--max-objects must be between 1 and 10');
+        if (max_obj<1 || max_obj>100)
+            die('--max-objects must be between 1 and 100');
         if (min_obj>max_obj)
             die('--min-objects cannot exceed --max-objects');
         if (total<max_obj)
@@ -159,7 +162,7 @@ function main(){
         }
         multi_logger.log('seed', seed);
         let random = new random_js(random_js.engines.mt19937().seed(seed));
-        if (random.bool())
+        if (random.bool() && shuffle)
             mk_agent = [mk_agent[1], mk_agent[0]];
         new session.Session(generator.get(random), mk_agent, multi_logger);
     }
