@@ -4,9 +4,7 @@ class Agent():
         self.values = values
         self.rounds = max_rounds
         self.log = log
-        self.Total_value = 0
-        for i in range(len(self.counts)): 
-            self.Total_value += counts[i]*values[i]
+        self.Total_value = self.inner(counts, values)
         self.p2_set, self.p2_set_weights = self.p2_values_set()
         self.hat_p2 = self.average_of_set(self.p2_set)
         self.p2_offers = []

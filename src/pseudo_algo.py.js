@@ -184,8 +184,7 @@ module.exports = class Agent {
             this.update_p2_set(o);
             /*and calculate the acceptance cost function, J_ac,
             such that if J_ac == True, the offer is accepted,*/
-            var acceptance_ = this.proceed_offer(o);
-            if (acceptance_){
+            if (this.proceed_offer(o)){
                 return;
             }
         }
