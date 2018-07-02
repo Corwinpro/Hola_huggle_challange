@@ -32,6 +32,7 @@ module.exports = class Agent {
         return inner;
 	}
 	all_combinations(A){
+        /*This is very bad. Works only for arrays with len == 3*/
         var B = [];
         for (var i = 0; i <= A[0]; i++) {
             for (var j = 0; j <= A[1]; j++) {
@@ -98,20 +99,23 @@ module.exports = class Agent {
         var res = this.res_offer(o);
         for (let i = 0; i<this.p2_set.length; i++){
             var value = this.p2_set[i];
-            if (this.offer_profit(res, value) < this.threshold){
+            var profit = this.offer_profit(res, value);
+            if (profit <= this.threshold){
                 this.p2_set_weights[i] *= this.reweighting_param;
             }
+            else{
+                /*Instead of 'dropping' the possible p2 values,
+                It is worth to properly reweight the values list,
+                e.g.: if for an item in p2_set we expect an offer to give X > threshold,
+                the weight of the item is proportionally increased.
+                Otherwise, it is decreased.
+                Crude approximation, like X == 10: weight *= 0.2,
+                                        X == 9: weight *= 0.1,
+                                        and so on 
+                */
+                this.p2_set_weights[i] *= this.reweighting_param + (profit - 5)*1.1/5.;
+            }
         }
-        /*TODO
-        Instead of 'dropping' the possible p2 values,
-        It is worth to properly reweight the values list,
-        e.g.: if for an item in p2_set we expect an offer to give X > threshold,
-        the weight of the item is proportionally increased.
-        Otherwise, it is decreased.
-        Crude approximation, like X == 10: weight += 0.2
-                                  X == 9: weight += 0.15,
-                                  and so on 
-        */
     }
     estimate_p2_profit(o){
         /*We estimate the expected opponents profit by average values of self.p2_set*/
