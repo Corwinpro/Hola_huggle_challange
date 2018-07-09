@@ -1,5 +1,37 @@
 'use strict'; /*jslint node:true*/
 
+/*
+TODO
+
+Here's the list of the algorithm parameters which should be tuned:
+
+Values combination group
+
+- threshold
+    The lower bound of the offer acceptance. We assume, that the opponent will
+    almost  never accept an offer with the profit(offer) <= this
+- reweighting_param
+    For a value set, if we estimate the opponent's offer less than the threshold,
+    the weight of this particular value set is decreased by this
+- reweighting map (not implemented in generic way)
+    For a value set, if we estimate the opponent's offer greater than the threshold,
+    the weight of this particular value set is changed by this function,
+    which maps the offer profit to the change in weight
+
+Cost function J_ac
+
+    J_ac is a generic acceptance cost function of our agent. If we are given an offer
+    with J_ac(offer) >= acceptance_threshold, the offer is good enough and we take it.
+
+    J_ac is a sum of our profit and an estimation of how better the offer is for us than
+    to the opponent.
+
+- diff_weight
+    Measures the 
+
+*/
+
+
 module.exports = class Agent {
     constructor(me, counts, values, max_rounds, log){
         this.counts = counts;
@@ -12,35 +44,43 @@ module.exports = class Agent {
         this.p2_offers = [];
         this.my_offers = [];
         this.threshold = 5;
-        this.reweighting_param = 0.1;
+        this.reweighting_param = 0.4;
         //Optimal ofer J parameters
         this.diff_weight = 0.2;
         this.acceptance_threshold = 8.-this.diff_weight-0.05;
 
         this.offer_combinations = this.all_combinations(this.counts);
 	}
-	sum(a){
-		var summ = 0;
+    sum(a){
+        var summ = 0;
         for (let i = 0; i<a.length; i++)
             summ += a[i];
         return summ;
-	}
-	inner(a,b){
-		var inner = 0;
+    }
+    inner(a,b){
+        var inner = 0;
         for (let i = 0; i<a.length; i++)
             inner += a[i]*b[i];
         return inner;
-	}
+    }
 	all_combinations(A){
-        /*This is very bad. Works only for arrays with len == 3*/
         var B = [];
-        for (var i = 0; i <= A[0]; i++) {
-            for (var j = 0; j <= A[1]; j++) {
-              for (var k = 0; k <= A[2]; k++) {
-                B.push([i, j, k]);
-              }
+
+        for (var i = 0; i < A[0] + 1; i++) {
+            B.push([i]);
+        }
+
+        for (var i = 1; i < A.length; i++) {
+            var _tmp_array = [];
+            for (var j = 0; j < A[i] + 1; j++) {
+                for (var k = 0; k < B.length; k++) {
+                    var _new_element = B[k].concat([j]);
+                    _tmp_array.push(_new_element);
+                }
             }
-          }
+            B = _tmp_array;
+        }
+
         return B;
     }
     res_offer(o){
@@ -113,6 +153,7 @@ module.exports = class Agent {
                                         X == 9: weight *= 0.1,
                                         and so on 
                 */
+                //should be reweighting map
                 this.p2_set_weights[i] *= this.reweighting_param + (profit - 5)*1.1/5.;
             }
         }
@@ -166,9 +207,10 @@ module.exports = class Agent {
         /*iterate through all possible offers and find the best one*/
         for (let i = 0; i<this.offer_combinations.length; i++){
             var current_offer_J = this.J_of(this.offer_combinations[i]);
-            /*We give the same offer again ONLY if it's much more optimal than the rest*/
+            /*We give the same offer again ONLY if it's much more likely
+              to be optimal than the rest*/
             if (this.my_offers.includes(this.offer_combinations[i])){
-                current_offer_J *= 0.3;
+                current_offer_J *= 0.5;
             }
             if (current_offer_J > optimal_offer_J){
                 optimal_offer_J = current_offer_J;
@@ -179,9 +221,10 @@ module.exports = class Agent {
     }
     offer(o){
         this.log(`${this.rounds} rounds left`);
+        //this.log(`${this.hat_p2}`);
         this.rounds--;
         if (this.rounds < 3)
-            this.acceptance_threshold -= 1.;
+            this.acceptance_threshold -= 0.5;
         if (o)
         {
             /*Given an offer, we process the new information: we update self.p2_set:*/
@@ -189,6 +232,7 @@ module.exports = class Agent {
             /*and calculate the acceptance cost function, J_ac,
             such that if J_ac == True, the offer is accepted,*/
             if (this.proceed_offer(o)){
+                //this.log(`${this.p2_set_weights}`);
                 return;
             }
         }
