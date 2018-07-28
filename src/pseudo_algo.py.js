@@ -47,7 +47,7 @@ module.exports = class Agent {
         this.reweighting_param = 0.4;
         //Optimal ofer J parameters
         this.diff_weight = 0.2;
-        this.acceptance_threshold = 8.-this.diff_weight-0.05;
+        this.acceptance_threshold = 8.0-this.diff_weight-0.05;
 
         this.offer_combinations = this.all_combinations(this.counts);
 	}
@@ -154,7 +154,7 @@ module.exports = class Agent {
                                         and so on 
                 */
                 //should be reweighting map
-                this.p2_set_weights[i] *= this.reweighting_param + (profit - 5)*1.1/5.;
+                this.p2_set_weights[i] *= this.reweighting_param + (profit - this.threshold)*1.1/(10. - this.threshold);
             }
         }
     }
@@ -171,30 +171,41 @@ module.exports = class Agent {
         /*We calculate the internal acceptance cost function, J_ac.
         #If J_ac > self.acceptance_threshold, the offer is accepted*/
         var profit = this.offer_profit(o, this.values);
-        if (profit > 9){
+        if (profit >= 9){
             return true;
         }
         var res = this.res_offer(o);
         var p2_profit = this.estimate_p2_profit(res);
         var proceed_to_accept = this.J_ac(profit, p2_profit) > this.acceptance_threshold;
+        if (this.rounds < 1){
+            proceed_to_accept = profit >= 5.;
+        }
         return proceed_to_accept;
-        //Bug?
-        /*if (proceed_to_accept){
-            //print 'I get ', profit, 'and I expect to give ', p2_profit, ' with my estimation of values as ', self.hat_p2
-            return proceed_to_accept;
-        }*/
     }
     p2_acceptance_prob(o){
         var p2_profit = this.offer_profit(this.hat_p2, o);
-        return Math.pow(p2_profit,0.9)/10.;
+        var accept_prob = 1.;
+        if (p2_profit < 9.){
+            accept_prob = Math.pow(p2_profit,1.0)/10.;
+        }
+        if (p2_profit  == 0){
+            accept_prob = 0.;
+        }
+        if (this.p2_offers.includes(this.res_offer(o))){
+            accept_prob = 1.;
+        }
+        return accept_prob;
     }
     J_of(o){
-        /*We dont accept offers with profit < 6*/
-        if (this.inner(this.values, o) < 6.){
+        /*We dont accept offers with profit < 5*/
+        if (this.inner(this.values, o) < 5.){
             return -1;
         }
         var res = this.res_offer(o);
         var J = this.p2_acceptance_prob(res) * (this.inner(this.values, o) + this.diff_weight*(this.inner(this.values, o) - this.inner(this.hat_p2, res)));
+        if (this.rounds < 1){
+            J = (0.05 + this.p2_acceptance_prob(res)) * this.inner(this.values, o);
+        }
         return J;
     }
     generate_optimal_offer(){
@@ -207,15 +218,25 @@ module.exports = class Agent {
         /*iterate through all possible offers and find the best one*/
         for (let i = 0; i<this.offer_combinations.length; i++){
             var current_offer_J = this.J_of(this.offer_combinations[i]);
-            /*We give the same offer again ONLY if it's much more likely
+            /*We give the same or worse offer again ONLY if it's much more likely
               to be optimal than the rest*/
-            if (this.my_offers.includes(this.offer_combinations[i])){
-                current_offer_J *= 0.5;
+            for (let j = 0; j < this.my_offers.length; j++){
+                var exceeds = 0;
+                for (let k = 0; k < this.offer_combinations[i].length; k++){
+                    if (this.offer_combinations[i][k] < this.my_offers[j][k]){
+                        exceeds = 1;
+                    }
+                }
+            }
+            if (exceeds == 0){
+                current_offer_J *= 0.3;
+            
             }
             if (current_offer_J > optimal_offer_J){
                 optimal_offer_J = current_offer_J;
                 optimal_offer_index = i;
             }
+            //this.log(`${this.offer_combinations[i]}, ${current_offer_J}`);
         }
         return this.offer_combinations[optimal_offer_index];
     }
@@ -229,17 +250,30 @@ module.exports = class Agent {
         {
             /*Given an offer, we process the new information: we update self.p2_set:*/
             this.update_p2_set(o);
-            /*and calculate the acceptance cost function, J_ac,
-            such that if J_ac == True, the offer is accepted,*/
+            
             if (this.proceed_offer(o)){
-                //this.log(`${this.p2_set_weights}`);
+                return;
+            }
+            /*We generate an new offer by estimating an optimal offer*/
+            var new_offer = this.generate_optimal_offer();
+            if (this.p2_offers.includes(this.res_offer(new_offer))){
+                this.diff_weight = this.diff_weight * 2.;
+                new_offer = this.generate_optimal_offer();
+                this.diff_weight = this.diff_weight / 2.;
+            }
+            /*If the optimal offer we would propose gives the same or less profit,
+              we simply agree on 'o'*/
+            if (this.inner(this.values, o) >= this.inner(this.values, new_offer)){
                 return;
             }
         }
-        /*Otherwise, we generate an new offer by estimating an optimal offer*/
-        var new_offer = this.generate_optimal_offer();
+        else{
+            var new_offer = this.generate_optimal_offer();
+        }
+
         this.my_offers.push(new_offer);
-        /*And return the new offer*/
+        //this.log(`I get ${this.offer_profit(this.values, new_offer)}, I expect to give ${this.offer_profit(this.hat_p2, this.res_offer(new_offer))}, accept prob is ${this.p2_acceptance_prob(this.res_offer(new_offer))}`);
+
         return new_offer;
     }
 };
